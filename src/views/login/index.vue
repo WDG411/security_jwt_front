@@ -19,20 +19,26 @@ const genderList = ref([
 ])
 let router = useRouter()
 
-//登录
+// 登录
 const login = async () => {
-  const result = await loginApi(loginForm.value)
-  console.log(result)
-  if (result.accessToken) {// 登录成功
+  try {
+    // 成功时，拦截器会直接返回 response.data
+    const result = await loginApi(loginForm.value)
+    console.log('登录接口返回：', result)
+
+    // 这里一定有 accessToken，直接认为登录成功
     ElMessage.success('登录成功')
     const loginUser = {
       token: result.accessToken,
       username: result.username,
     }
     localStorage.setItem('loginUser', JSON.stringify(loginUser))
-    router.push('/index')// 跳转
-  } else {
-    ElMessage.error(result.msg)
+    router.push('/index')  // 跳转
+  } catch (errData) {
+    // 走到这里说明 HTTP 返回了非 2xx，errData 就是后端返回的 data
+    console.log('登录失败返回：', errData)
+    // 假设后端返回 { message: "xxx" } 或 { msg: "xxx" }
+    ElMessage.error(errData.message || errData.msg || '登录失败')
   }
 }
 
@@ -47,21 +53,30 @@ const cancel = () => {
 const dialogRegisterVisible = ref(false);
 
 const register = async () => {
-  const result = await registerApi(registerForm.value);
-  console.log(result);
-  if (result.status === 200) {
+  try {
+    // 成功时，这里拿到的就是后端接口返回的 data 对象
+    const result = await registerApi(registerForm.value)
+    console.log('注册接口返回：', result)
+
+    // 既然能执行到这里，就说明 HTTP 走的是 2xx，注册成功
     ElMessage.success('注册成功')
-    dialogRegisterVisible.value = false;
+    dialogRegisterVisible.value = false
+
     const loginUser = {
       token: result.accessToken,
       username: result.username,
     }
     localStorage.setItem('loginUser', JSON.stringify(loginUser))
+
     router.push('/index')
-  } else {
-    ElMessage.error("注册失败")
+  } catch (errData) {
+    // 走到这里说明 HTTP 返回了非 2xx，errData 就是后端返回的 data
+    console.log('注册失败返回：', errData)
+    // 假设后端返回 { message: "Error: Username is already taken!" }
+    ElMessage.error(errData.message || '注册失败')
   }
 }
+
 
 
 </script>

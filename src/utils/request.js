@@ -5,71 +5,49 @@ import router from '../router'
 // 创建 axios 实例
 const request = axios.create({
     baseURL: '/api/auth',
-    timeout: 60000
+    timeout: 60000,
+    headers: {
+        'Content-Type': 'application/json'
+    }
 })
 
-// 请求拦截器
-// request.interceptors.request.use(
-//     (config) => {
-//         const loginUser = JSON.parse(localStorage.getItem('loginUser'))
-//         if (loginUser?.token) {
-//             config.headers['Authorization'] = `Bearer ${loginUser.token}`
-//         }
-//         return config
-//     },
-//     (error) => Promise.reject(error)
-// )
-
-// request.interceptors.request.use(
-//     (config) => {
-//         let loginUser = JSON.parse(localStorage.getItem('loginUser'))
-//
-//         if (loginUser) {
-//             config.headers.Authorization = `Bearer ${loginUser.token}`
-//         }
-//
-//         // 确保发送 JSON 格式
-//         config.headers['Content-Type'] = 'application/json'
-//
-//         return config
-//     },
-//     (error) => {
-//         return Promise.reject(error)
-//     }
-// )
-
+// 请求拦截器：自动带上 Bearer token
 request.interceptors.request.use(
-    (config) => {
-
-        const userStr = localStorage.getItem('loginUser');
-        console.log("你在干什么啊",userStr)
-        if (userStr!=="undefined" && userStr) {
-            const loginUser = JSON.parse(userStr);
-            config.headers.Authorization = `Bearer ${loginUser.token}`;
+    config => {
+        const userStr = localStorage.getItem('loginUser')
+        if (userStr && userStr !== 'undefined') {
+            try {
+                const loginUser = JSON.parse(userStr)
+                if (loginUser.token) {
+                    config.headers.Authorization = `Bearer ${loginUser.token}`
+                }
+            } catch (e) {
+                console.warn('解析 loginUser 失败：', e)
+            }
         }
-
-
-        config.headers['Content-Type'] = 'application/json';
-        return config;
+        return config
     },
-    (error) => Promise.reject(error)
-);
+    error => Promise.reject(error)
+)
 
-
-// 响应拦截器
+// 响应拦截器：返回 data，错误时抛出后端返回的 data
 request.interceptors.response.use(
-
-    (response) => {
-        console.log(response);  // 打印响应
-        return response.data;
+    response => {
+        // 2xx 时直接返回 data
+        return response.data
     },
-    (error) => {
-        if (error.response?.status === 401) {
+    error => {
+        const res = error.response
+        // 401 单独处理：提示、清除登录信息并跳转登录页
+        if (res?.status === 401) {
             ElMessage.error('登录失效，请重新登录')
             localStorage.removeItem('loginUser')
             router.push('/login')
+            // 如果也想让调用方拿到后端的 message：
+            return Promise.reject(res.data)
         }
-        return Promise.reject(error)
+        // 其它错误，把后端返回的 data 抛给调用方
+        return Promise.reject(res?.data ?? error)
     }
 )
 
